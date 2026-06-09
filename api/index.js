@@ -6,8 +6,10 @@ const axios = require('axios');
 const Groq = require('groq-sdk');
 const { YoutubeTranscript } = require('youtube-transcript');
 
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+
 const app = express();
-const PORT = process.env.PORT || 8080;
 
 app.use(cors({ origin: '*' }));
 
@@ -50,11 +52,10 @@ async function generateSummaryData(url, summaryLength = 'Standard', contentPrefe
 
   if (!videoId) throw { status: 400, message: 'Could not read this YouTube URL. Please check it and try again.' };
 
-  const youtubeApiKey = process.env.YOUTUBE_API_KEY;
-  if (!youtubeApiKey) throw { status: 500, message: 'YouTube API key is not configured.' };
+  if (!YOUTUBE_API_KEY) throw { status: 500, message: 'YouTube API key is not configured.' };
 
   const videoListResponse = await axios.get('https://www.googleapis.com/youtube/v3/videos', {
-    params: { part: 'snippet,contentDetails', id: videoId, key: youtubeApiKey }
+    params: { part: 'snippet,contentDetails', id: videoId, key: YOUTUBE_API_KEY }
   });
 
   if (!videoListResponse.data.items || videoListResponse.data.items.length === 0) {
@@ -95,8 +96,7 @@ async function generateSummaryData(url, summaryLength = 'Standard', contentPrefe
 
   if (plainText.length < 100) throw { status: 400, message: 'This video transcript is too short to summarize.' };
 
-  const groqApiKey = process.env.GROQ_API_KEY;
-  if (!groqApiKey) throw { status: 500, message: 'Groq API key is not configured.' };
+  if (!GROQ_API_KEY) throw { status: 500, message: 'Groq API key is not configured.' };
 
   const preferencesStr = Array.isArray(contentPreferences) && contentPreferences.length > 0 
     ? contentPreferences.join(', ') 
@@ -132,7 +132,7 @@ ${lengthSpec}
 
 Return NOTHING except the raw JSON object. Do not include markdown code blocks.`;
 
-  const groq = new Groq({ apiKey: groqApiKey });
+  const groq = new Groq({ apiKey: GROQ_API_KEY });
   const completion = await groq.chat.completions.create({
     messages: [
       { role: 'system', content: systemPrompt },
@@ -184,7 +184,7 @@ app.post('/api/compare', async (req, res) => {
       generateSummaryData(url1, 'Detailed', []),
       generateSummaryData(url2, 'Detailed', [])
     ]);
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    const groq = new Groq({ apiKey: GROQ_API_KEY });
     const completion = await groq.chat.completions.create({
       messages: [
         { role: 'system', content: 'You are an AI assistant. Given summaries of two videos, write exactly one concise sentence observing how they relate to each other, compare, or contrast.' },
@@ -211,18 +211,17 @@ app.get('/api/channel', async (req, res) => {
     else if (channelUrl.includes('/@')) handle = channelUrl.split('/@')[1].split('/')[0].split('?')[0];
     else if (channelUrl.includes('/c/')) handle = channelUrl.split('/c/')[1].split('/')[0].split('?')[0];
 
-    const youtubeApiKey = process.env.YOUTUBE_API_KEY;
-    if (!youtubeApiKey) return res.status(500).json({ error: 'YouTube API key is not configured.' });
+    if (!YOUTUBE_API_KEY) return res.status(500).json({ error: 'YouTube API key is not configured.' });
 
     let channelData = null;
     if (channelId) {
-      const resp = await axios.get('https://www.googleapis.com/youtube/v3/channels', { params: { part: 'snippet,statistics', id: channelId, key: youtubeApiKey } });
+      const resp = await axios.get('https://www.googleapis.com/youtube/v3/channels', { params: { part: 'snippet,statistics', id: channelId, key: YOUTUBE_API_KEY } });
       if (resp.data.items && resp.data.items.length > 0) channelData = resp.data.items[0];
     } else if (handle) {
-      const searchResp = await axios.get('https://www.googleapis.com/youtube/v3/search', { params: { part: 'snippet', type: 'channel', q: '@' + handle, maxResults: 1, key: youtubeApiKey } });
+      const searchResp = await axios.get('https://www.googleapis.com/youtube/v3/search', { params: { part: 'snippet', type: 'channel', q: '@' + handle, maxResults: 1, key: YOUTUBE_API_KEY } });
       if (searchResp.data.items && searchResp.data.items.length > 0) {
         const foundChannelId = searchResp.data.items[0].id.channelId;
-        const resp = await axios.get('https://www.googleapis.com/youtube/v3/channels', { params: { part: 'snippet,statistics', id: foundChannelId, key: youtubeApiKey } });
+        const resp = await axios.get('https://www.googleapis.com/youtube/v3/channels', { params: { part: 'snippet,statistics', id: foundChannelId, key: YOUTUBE_API_KEY } });
         if (resp.data.items && resp.data.items.length > 0) channelData = resp.data.items[0];
       }
     }
@@ -238,7 +237,7 @@ app.get('/api/channel', async (req, res) => {
     const videoCount = channelData.statistics.videoCount;
 
     const recentVideosResp = await axios.get('https://www.googleapis.com/youtube/v3/search', {
-      params: { part: 'snippet', channelId: resolvedChannelId, order: 'date', type: 'video', maxResults: 10, key: youtubeApiKey }
+      params: { part: 'snippet', channelId: resolvedChannelId, order: 'date', type: 'video', maxResults: 10, key: YOUTUBE_API_KEY }
     });
 
     const recentVideos = (recentVideosResp.data.items || []).map(item => ({
@@ -254,8 +253,5 @@ app.get('/api/channel', async (req, res) => {
   }
 });
 
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => console.log('Server running on port ' + PORT));
-}
-
 module.exports = app;
+export default app;
