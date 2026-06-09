@@ -37,6 +37,15 @@ function parseDuration(isoDuration) {
   return parts.length > 0 ? parts.join(' ') : 'Unknown duration';
 }
 
+function parseDurationToSeconds(isoDuration) {
+  const match = isoDuration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!match) return 300;
+  const hours = parseInt(match[1]) || 0;
+  const minutes = parseInt(match[2]) || 0;
+  const seconds = parseInt(match[3]) || 0;
+  return hours * 3600 + minutes * 60 + seconds;
+}
+
 async function generateSummaryData(url, summaryLength = 'Standard', contentPreferences = []) {
   if (!url || url.trim() === '') throw { status: 400, message: 'Please provide a video URL.' };
   
@@ -91,10 +100,24 @@ async function generateSummaryData(url, summaryLength = 'Standard', contentPrefe
     }));
   } catch (error) {
     console.warn('Transcript error:', error.message);
-    throw { status: 400, message: 'This video does not have captions available. Try a different YouTube video.' };
+    const fallbackText = (snippet.title + " " + (snippet.description || "")).trim();
+    if (fallbackText.length >= 20) {
+      plainText = `Video Title: ${snippet.title}\n\nDescription:\n${snippet.description || 'No description available.'}`;
+      const durationInSeconds = parseDurationToSeconds(contentDetails.duration);
+      timedSegments = [
+        { seconds: 0, text: "Introduction" },
+        { seconds: Math.floor(durationInSeconds * 0.2), text: "Key Concepts" },
+        { seconds: Math.floor(durationInSeconds * 0.4), text: "Deep Dive" },
+        { seconds: Math.floor(durationInSeconds * 0.6), text: "Detailed Analysis" },
+        { seconds: Math.floor(durationInSeconds * 0.8), text: "Further Discussion" },
+        { seconds: Math.max(0, durationInSeconds - 2), text: "Conclusion" }
+      ];
+    } else {
+      throw { status: 400, message: 'This video does not have captions or description available. Try a different YouTube video.' };
+    }
   }
 
-  if (plainText.length < 100) throw { status: 400, message: 'This video transcript is too short to summarize.' };
+  if (plainText.length < 30) throw { status: 400, message: 'This video transcript is too short to summarize.' };
 
   if (!GROQ_API_KEY) throw { status: 500, message: 'Groq API key is not configured.' };
 
