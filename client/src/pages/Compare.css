@@ -1,0 +1,136 @@
+.compare-page {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.compare-title {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.compare-search-section {
+  width: 100%;
+}
+
+.compare-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+}
+
+.compare-inputs-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.compare-input {
+  flex: 1;
+}
+
+/* VS circle badge */
+.compare-vs-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: var(--accent-dim);
+  border: 1px solid rgba(212, 168, 83, 0.4);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 200ms ease;
+}
+
+.compare-vs-badge.pulse {
+  animation: vsPulse 2s ease-in-out infinite;
+}
+
+@keyframes vsPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+.compare-submit-btn {
+  align-self: center;
+  height: 48px;
+  width: 160px;
+}
+
+/* Compare Results */
+.compare-results-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: 100%;
+}
+
+.similarity-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.similarity-heading {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.similarity-text {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* Columns grid for comparison */
+.compare-columns-grid {
+  display: grid;
+  grid-template-columns: 1fr; /* Stack vertically by default */
+  gap: var(--space-8);
+  width: 100%;
+}
+
+.compare-col {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.compare-actions-row {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-4);
+  width: 100%;
+}
+
+/* Side-by-side columns only on wide monitors to prevent horizontal scrolling */
+@media (min-width: 1300px) {
+  .compare-columns-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .compare-inputs-row {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  .compare-vs-badge {
+    transform: rotate(90deg);
+  }
+  .compare-submit-btn {
+    width: 100%;
+  }
+}

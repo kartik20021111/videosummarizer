@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VideoSummarizer</title>
+    <script>
+      (function() {
+        var themeName = localStorage.getItem('vsTheme') || 'ink';
+        var themes = {
+          ink: {
+            '--bg': '#0F0E0C',
+            '--bg-black': '#000000',
+            '--surface': '#1C1A16',
+            '--surface-raised': '#242118',
+            '--border': '#2E2B24',
+            '--border-subtle': '#1F1D19',
+            '--accent': '#D4A853',
+            '--accent-dim': 'rgba(212, 168, 83, 0.12)',
+            '--accent-glow': 'rgba(212, 168, 83, 0.06)',
+            '--text-primary': '#F5F0E8',
+            '--text-secondary': '#B8B0A0',
+            '--text-muted': '#9E9689',
+            '--text-disabled': '#4A4740'
+          },
+          midnight: {
+            '--bg': '#080C14',
+            '--bg-black': '#000000',
+            '--surface': '#0F1520',
+            '--surface-raised': '#182030',
+            '--border': '#1F293D',
+            '--border-subtle': '#151E2E',
+            '--accent': '#4A9EFF',
+            '--accent-dim': 'rgba(74, 158, 255, 0.12)',
+            '--accent-glow': 'rgba(74, 158, 255, 0.06)',
+            '--text-primary': '#F0F4FC',
+            '--text-secondary': '#A6B4C9',
+            '--text-muted': '#7F91A8',
+            '--text-disabled': '#3B4B61'
+          },
+          ash: {
+            '--bg': '#0C0C0E',
+            '--bg-black': '#000000',
+            '--surface': '#16161A',
+            '--surface-raised': '#202026',
+            '--border': '#25252E',
+            '--border-subtle': '#1C1C24',
+            '--accent': '#9B8FFF',
+            '--accent-dim': 'rgba(155, 143, 255, 0.12)',
+            '--accent-glow': 'rgba(155, 143, 255, 0.06)',
+            '--text-primary': '#F1F0F5',
+            '--text-secondary': '#ABA8B5',
+            '--text-muted': '#827F8E',
+            '--text-disabled': '#41404C'
+          },
+          sage: {
+            '--bg': '#0A0F0C',
+            '--bg-black': '#000000',
+            '--surface': '#111A13',
+            '--surface-raised': '#18261B',
+            '--border': '#203024',
+            '--border-subtle': '#17231A',
+            '--accent': '#5DB87A',
+            '--accent-dim': 'rgba(93, 184, 122, 0.12)',
+            '--accent-glow': 'rgba(93, 184, 122, 0.06)',
+            '--text-primary': '#EDF5F0',
+            '--text-secondary': '#A0B3A6',
+            '--text-muted': '#798C7F',
+            '--text-disabled': '#37473D'
+          },
+          light: {
+            '--bg': '#F7F5F0',
+            '--bg-black': '#E5E2DA',
+            '--surface': '#FFFFFF',
+            '--surface-raised': '#F0EDE6',
+            '--border': '#E8E4DC',
+            '--border-subtle': '#F0ECE4',
+            '--accent': '#C4922A',
+            '--accent-dim': 'rgba(196, 146, 42, 0.12)',
+            '--accent-glow': 'rgba(196, 146, 42, 0.06)',
+            '--text-primary': '#1A1814',
+            '--text-secondary': '#4A4640',
+            '--text-muted': '#8A857D',
+            '--text-disabled': '#B5B0A8'
+          }
+        };
+        var root = document.documentElement;
+        var selectedTheme = themes[themeName] || themes.ink;
+        Object.keys(selectedTheme).forEach(function(prop) {
+          root.style.setProperty(prop, selectedTheme[prop]);
+        });
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

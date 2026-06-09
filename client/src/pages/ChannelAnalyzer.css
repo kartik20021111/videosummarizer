@@ -1,0 +1,205 @@
+.channel-analyzer-page {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.channel-title {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.channel-search-section {
+  width: 100%;
+}
+
+.channel-form {
+  display: flex;
+  gap: var(--space-4);
+  width: 100%;
+  align-items: center;
+}
+
+/* Results Content */
+.channel-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  width: 100%;
+}
+
+.channel-header-card {
+  display: flex;
+  gap: var(--space-5);
+  align-items: center;
+  width: 100%;
+}
+
+.channel-avatar-img {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  object-fit: cover;
+}
+
+.channel-info-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.channel-header-name {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.channel-header-desc {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Stat Cards */
+.channel-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+  width: 100%;
+}
+
+.milestone-progress-card {
+  width: 100%;
+}
+
+.channel-stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+}
+
+.stat-number {
+  font-size: var(--text-3xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.stat-label {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+/* Progress bar system */
+.milestone-progress-container {
+  margin-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.milestone-label-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.milestone-progress-track {
+  width: 100%;
+  height: 4px;
+  background-color: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.milestone-progress-fill {
+  height: 100%;
+  background-color: var(--accent);
+  border-radius: 2px;
+}
+
+/* Videos Grid */
+.channel-section-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-top: var(--space-4);
+}
+
+.recent-videos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-4);
+  width: 100%;
+}
+
+.recent-video-card {
+  padding: 0;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  cursor: pointer;
+}
+
+.recent-video-thumb {
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  border-bottom: 1px solid var(--border);
+}
+
+.recent-video-title {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  padding: var(--space-4);
+  line-height: 1.4;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.watch-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(15, 14, 12, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  color: var(--accent);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  opacity: 0;
+  transition: opacity 150ms var(--ease-in);
+}
+
+.recent-video-card:hover .watch-overlay {
+  opacity: 1;
+}
+
+@media (max-width: 600px) {
+  .channel-header-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .channel-form {
+    flex-direction: column;
+  }
+  .channel-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
