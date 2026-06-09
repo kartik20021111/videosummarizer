@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "VideoSummarizer Web App",
   "main": "index.js",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "start": "concurrently \"npm run server\" \"npm run client\"",
     "client": "npm run dev --prefix client",
