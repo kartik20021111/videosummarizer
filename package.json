@@ -12,7 +12,8 @@
     "server": "npm start --prefix server",
     "install:all": "npm install && npm install --prefix client && npm install --prefix server",
     "build:client": "npm run build --prefix client",
-    "build": "cd client && npm install && npm run build"
+    "build": "cd client && npm install && npx vite build",
+    "vercel-build": "cd client && npm install && npx vite build"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
