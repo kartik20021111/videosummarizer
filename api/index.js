@@ -11,18 +11,40 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
 const app = express();
 
-app.use(cors({ origin: '*' }));
+// ✅ CORS — locked to your domain only
+const allowedOrigins = [
+  'https://videosummarizer-brown.vercel.app',
+  'http://localhost:5173' // for local dev only
+];
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  }
+}));
 
+// ✅ Rate limiting — 10 requests per minute per IP
 const limiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 30,
-  message: { error: 'Too many requests from this IP, please try again after a minute' },
+  max: 10,
+  message: { error: 'Too many requests. Please wait a minute and try again.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
 app.use(limiter);
 
-app.use(express.json());
+app.use(express.json({ limit: '10kb' })); // ✅ Body size limit — prevents large payload attacks
+
+// ✅ YouTube URL validator
+function isValidYouTubeUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  if (url.length > 200) return false; // ✅ Long input DoS protection
+  const pattern = /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[\w-]{11}/;
+  return pattern.test(url);
+}
 
 function parseDuration(isoDuration) {
   const match = isoDuration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
@@ -47,24 +69,29 @@ function parseDurationToSeconds(isoDuration) {
 }
 
 async function generateSummaryData(url, summaryLength = 'Standard', contentPreferences = []) {
-  if (!url || url.trim() === '') throw { status: 400, message: 'Please provide a video URL.' };
-  
-  const urlRegex = /^(https?:\/\/)?([\w\d-]+\.)+\w{2,}(\/.*)?$/;
-  if (!urlRegex.test(url)) throw { status: 400, message: 'Please enter a valid URL.' };
+  // ✅ Strict YouTube URL validation
+  if (!isValidYouTubeUrl(url)) {
+    throw { status: 400, message: 'Please provide a valid YouTube URL.' };
+  }
+
   if (!url.includes('youtube.com/watch') && !url.includes('youtu.be')) {
-    throw { status: 400, message: 'Currently only YouTube links are supported. Paste a YouTube video URL to get started.' };
+    throw { status: 400, message: 'Currently only YouTube links are supported.' };
   }
 
   let videoId = null;
   if (url.includes('youtu.be/')) videoId = url.split('youtu.be/')[1].split('?')[0];
   else if (url.includes('youtube.com/watch')) videoId = new URL(url).searchParams.get('v');
 
-  if (!videoId) throw { status: 400, message: 'Could not read this YouTube URL. Please check it and try again.' };
+  // ✅ Validate video ID format
+  if (!videoId || !/^[\w-]{11}$/.test(videoId)) {
+    throw { status: 400, message: 'Could not read this YouTube URL. Please check it and try again.' };
+  }
 
-  if (!YOUTUBE_API_KEY) throw { status: 500, message: 'YouTube API key is not configured.' };
+  if (!YOUTUBE_API_KEY) throw { status: 500, message: 'Service configuration error.' }; // ✅ No key details exposed
 
   const videoListResponse = await axios.get('https://www.googleapis.com/youtube/v3/videos', {
-    params: { part: 'snippet,contentDetails', id: videoId, key: YOUTUBE_API_KEY }
+    params: { part: 'snippet,contentDetails', id: videoId, key: YOUTUBE_API_KEY },
+    timeout: 10000 // ✅ 10 second timeout on external calls
   });
 
   if (!videoListResponse.data.items || videoListResponse.data.items.length === 0) {
@@ -83,9 +110,10 @@ async function generateSummaryData(url, summaryLength = 'Standard', contentPrefe
   let timedSegments = [];
   try {
     const transcriptList = await YoutubeTranscript.fetchTranscript(videoId);
-    plainText = transcriptList.map(item => item.text).join(' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+    plainText = transcriptList.map(item => item.text).join(' ')
+      .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+      .replace(/&#39;/g, "'").replace(/&quot;/g, '"');
 
-    // Select up to 15 segments spaced evenly across the video to keep token count low but cover the entire timeline
     const totalSegments = transcriptList.length;
     const step = Math.max(1, Math.floor(totalSegments / 15));
     const selectedList = [];
@@ -96,10 +124,11 @@ async function generateSummaryData(url, summaryLength = 'Standard', contentPrefe
 
     timedSegments = selectedList.map(item => ({
       seconds: Math.floor(item.offset / 1000),
-      text: item.text.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"')
+      text: item.text.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+        .replace(/&#39;/g, "'").replace(/&quot;/g, '"')
     }));
   } catch (error) {
-    console.warn('Transcript error:', error.message);
+    console.warn('Transcript error:', error.message); // ✅ Logs internally, not exposed
     const fallbackText = (snippet.title + " " + (snippet.description || "")).trim();
     if (fallbackText.length >= 20) {
       plainText = `Video Title: ${snippet.title}\n\nDescription:\n${snippet.description || 'No description available.'}`;
@@ -113,17 +142,23 @@ async function generateSummaryData(url, summaryLength = 'Standard', contentPrefe
         { seconds: Math.max(0, durationInSeconds - 2), text: "Conclusion" }
       ];
     } else {
-      throw { status: 400, message: 'This video does not have captions or description available. Try a different YouTube video.' };
+      throw { status: 400, message: 'This video does not have captions available. Try a different video.' };
     }
   }
 
   if (plainText.length < 30) throw { status: 400, message: 'This video transcript is too short to summarize.' };
 
-  if (!GROQ_API_KEY) throw { status: 500, message: 'Groq API key is not configured.' };
+  if (!GROQ_API_KEY) throw { status: 500, message: 'Service configuration error.' }; // ✅ No key details exposed
 
-  const preferencesStr = Array.isArray(contentPreferences) && contentPreferences.length > 0 
-    ? contentPreferences.join(', ') 
-    : 'general interest';
+  // ✅ Sanitize contentPreferences — only allow strings, max 5 items, max 50 chars each
+  const safePreferences = Array.isArray(contentPreferences)
+    ? contentPreferences
+        .filter(p => typeof p === 'string')
+        .slice(0, 5)
+        .map(p => p.substring(0, 50).replace(/[<>\"']/g, ''))
+    : [];
+
+  const preferencesStr = safePreferences.length > 0 ? safePreferences.join(', ') : 'general interest';
 
   let lengthSpec = '';
   if (summaryLength === 'Brief') {
@@ -137,7 +172,6 @@ async function generateSummaryData(url, summaryLength = 'Standard', contentPrefe
 3. "keyPoints": array of strings. Exactly 10 to 12 points. Each key point must be 3 sentences long. Total word count across all key points must be 800 to 900 words.
 4. "context": string, full paragraph of exactly 5 to 6 sentences explaining broader background (do NOT use the word "insights").`;
   } else {
-    // Standard
     lengthSpec = `1. "executiveSummary": string, exactly 3 to 4 sentences.
 2. "mainTopic": string, one sentence.
 3. "keyPoints": array of strings. Exactly 5 to 6 points. Each key point must be 2 sentences long. Total word count across all key points must be 400 to 500 words.
@@ -176,36 +210,49 @@ Return NOTHING except the raw JSON object. Do not include markdown code blocks.`
     if (rawText.endsWith('```')) rawText = rawText.slice(0, -3).trim();
     resultData = JSON.parse(rawText);
   } catch (error) {
-    console.error('JSON Parse Error:', error, completion.choices[0]?.message?.content);
+    console.error('JSON Parse Error:', error.message); // ✅ Only logs message, not full stack
     throw { status: 500, message: 'Failed to generate a properly structured summary.' };
   }
 
   return { videoId, title, channelName, thumbnailUrl, duration, ...resultData };
 }
 
+// ✅ /api/summarize — with full input validation
 app.post('/api/summarize', async (req, res) => {
   try {
     const { url, contentPreferences, summaryLength } = req.body;
-    let resolvedLength = summaryLength || 'Standard';
-    if (resolvedLength.toLowerCase() === 'detailed') {
-      resolvedLength = 'Standard';
+
+    // ✅ Input length checks
+    if (!url || typeof url !== 'string' || url.length > 200) {
+      return res.status(400).json({ error: 'Invalid URL provided.' });
     }
+
+    let resolvedLength = summaryLength || 'Standard';
+    if (!['Brief', 'Standard', 'Comprehensive'].includes(resolvedLength)) {
+      resolvedLength = 'Standard'; // ✅ Whitelist allowed values
+    }
+
     const data = await generateSummaryData(url, resolvedLength, contentPreferences);
     return res.status(200).json(data);
   } catch (error) {
     if (error.status) return res.status(error.status).json({ error: error.message });
-    console.error('Internal Error:', error);
-    return res.status(500).json({ error: 'Something went wrong on our end. Please try again in a moment.' });
+    console.error('Internal Error:', error.message); // ✅ Never exposes stack trace
+    return res.status(500).json({ error: 'Something went wrong. Please try again in a moment.' });
   }
 });
 
+// ✅ /api/compare — with input validation
 app.post('/api/compare', async (req, res) => {
   try {
     const { url1, url2 } = req.body;
+
     if (!url1 || !url2) return res.status(400).json({ error: 'Please provide both URLs.' });
+    if (typeof url1 !== 'string' || typeof url2 !== 'string') return res.status(400).json({ error: 'Invalid input.' });
+    if (url1.length > 200 || url2.length > 200) return res.status(400).json({ error: 'URL too long.' });
+
     const [video1, video2] = await Promise.all([
-      generateSummaryData(url1, 'Detailed', []),
-      generateSummaryData(url2, 'Detailed', [])
+      generateSummaryData(url1, 'Standard', []),
+      generateSummaryData(url2, 'Standard', [])
     ]);
     const groq = new Groq({ apiKey: GROQ_API_KEY });
     const completion = await groq.chat.completions.create({
@@ -220,31 +267,48 @@ app.post('/api/compare', async (req, res) => {
     return res.status(200).json({ video1, video2, similarityNote });
   } catch (error) {
     if (error.status) return res.status(error.status).json({ error: error.message });
-    console.error('Compare Error:', error);
+    console.error('Compare Error:', error.message); // ✅ No stack trace exposed
     return res.status(500).json({ error: 'Something went wrong while comparing the videos.' });
   }
 });
 
+// ✅ /api/channel — with input validation
 app.get('/api/channel', async (req, res) => {
   try {
     const { channelUrl } = req.query;
     if (!channelUrl) return res.status(400).json({ error: 'Please provide a channel URL.' });
+    if (typeof channelUrl !== 'string' || channelUrl.length > 200) return res.status(400).json({ error: 'Invalid channel URL.' });
+    if (!channelUrl.includes('youtube.com')) return res.status(400).json({ error: 'Only YouTube channel URLs are supported.' });
+
     let channelId = null, handle = null;
     if (channelUrl.includes('/channel/')) channelId = channelUrl.split('/channel/')[1].split('/')[0].split('?')[0];
     else if (channelUrl.includes('/@')) handle = channelUrl.split('/@')[1].split('/')[0].split('?')[0];
     else if (channelUrl.includes('/c/')) handle = channelUrl.split('/c/')[1].split('/')[0].split('?')[0];
 
-    if (!YOUTUBE_API_KEY) return res.status(500).json({ error: 'YouTube API key is not configured.' });
+    // ✅ Validate extracted ID/handle format
+    if (channelId && !/^[\w-]{1,50}$/.test(channelId)) return res.status(400).json({ error: 'Invalid channel ID.' });
+    if (handle && !/^[\w-]{1,50}$/.test(handle)) return res.status(400).json({ error: 'Invalid channel handle.' });
+
+    if (!YOUTUBE_API_KEY) return res.status(500).json({ error: 'Service configuration error.' });
 
     let channelData = null;
     if (channelId) {
-      const resp = await axios.get('https://www.googleapis.com/youtube/v3/channels', { params: { part: 'snippet,statistics', id: channelId, key: YOUTUBE_API_KEY } });
+      const resp = await axios.get('https://www.googleapis.com/youtube/v3/channels', {
+        params: { part: 'snippet,statistics', id: channelId, key: YOUTUBE_API_KEY },
+        timeout: 10000
+      });
       if (resp.data.items && resp.data.items.length > 0) channelData = resp.data.items[0];
     } else if (handle) {
-      const searchResp = await axios.get('https://www.googleapis.com/youtube/v3/search', { params: { part: 'snippet', type: 'channel', q: '@' + handle, maxResults: 1, key: YOUTUBE_API_KEY } });
+      const searchResp = await axios.get('https://www.googleapis.com/youtube/v3/search', {
+        params: { part: 'snippet', type: 'channel', q: '@' + handle, maxResults: 1, key: YOUTUBE_API_KEY },
+        timeout: 10000
+      });
       if (searchResp.data.items && searchResp.data.items.length > 0) {
         const foundChannelId = searchResp.data.items[0].id.channelId;
-        const resp = await axios.get('https://www.googleapis.com/youtube/v3/channels', { params: { part: 'snippet,statistics', id: foundChannelId, key: YOUTUBE_API_KEY } });
+        const resp = await axios.get('https://www.googleapis.com/youtube/v3/channels', {
+          params: { part: 'snippet,statistics', id: foundChannelId, key: YOUTUBE_API_KEY },
+          timeout: 10000
+        });
         if (resp.data.items && resp.data.items.length > 0) channelData = resp.data.items[0];
       }
     }
@@ -260,7 +324,8 @@ app.get('/api/channel', async (req, res) => {
     const videoCount = channelData.statistics.videoCount;
 
     const recentVideosResp = await axios.get('https://www.googleapis.com/youtube/v3/search', {
-      params: { part: 'snippet', channelId: resolvedChannelId, order: 'date', type: 'video', maxResults: 10, key: YOUTUBE_API_KEY }
+      params: { part: 'snippet', channelId: resolvedChannelId, order: 'date', type: 'video', maxResults: 10, key: YOUTUBE_API_KEY },
+      timeout: 10000
     });
 
     const recentVideos = (recentVideosResp.data.items || []).map(item => ({
@@ -271,7 +336,7 @@ app.get('/api/channel', async (req, res) => {
 
     return res.status(200).json({ id: resolvedChannelId, name, description, avatarUrl, subscriberCount, viewCount, videoCount, recentVideos });
   } catch (error) {
-    console.error('Channel Analyzer Error:', error);
+    console.error('Channel Analyzer Error:', error.message); // ✅ No stack trace
     return res.status(500).json({ error: 'Failed to analyze channel.' });
   }
 });
