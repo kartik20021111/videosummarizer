@@ -9,8 +9,8 @@
   "scripts": {
     "start": "concurrently \"npm run server\" \"npm run client\"",
     "client": "npm run dev --prefix client",
-    "server": "npm start --prefix server",
-    "install:all": "npm install && npm install --prefix client && npm install --prefix server",
+    "server": "npm start --prefix api",
+    "install:all": "npm install && npm install --prefix client && npm install --prefix api",
     "build:client": "npm run build --prefix client",
     "build": "cd client && npm install && npx vite build",
     "vercel-build": "cd client && npm install && npx vite build"

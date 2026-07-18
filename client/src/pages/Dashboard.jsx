@@ -3,13 +3,32 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { List, Clock, Compass } from 'lucide-react';
 import ResultsDisplay from '../components/ResultsDisplay';
+import EmptyState from '../components/EmptyState';
 import './Dashboard.css';
+
+const defaultData = {
+  title: '',
+  thumbnailUrl: '',
+  summary: [],
+  keyPoints: [],
+  people: [],
+  timestamps: [],
+  recommendations: [],
+  executiveSummary: '',
+  mainTopic: '',
+  context: '',
+  exploreNext: [],
+  channelName: '',
+  duration: ''
+};
 
 const Dashboard = () => {
   const [url, setUrl] = useState('');
   const [status, setStatus] = useState('idle'); // idle, loading, success, error
-  const [data, setData] = useState(null);
+  const [data, setData] = useState(defaultData);
   const [errorMsg, setErrorMsg] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [inlineError, setInlineError] = useState('');
   const [activeTooltip, setActiveTooltip] = useState(null);
   
   const navigate = useNavigate();
@@ -63,14 +82,18 @@ const Dashboard = () => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!url.trim()) return;
-
-    setStatus('loading');
-    setData(null);
-    setErrorMsg('');
-
     try {
+      e.preventDefault();
+      if (!url || !url.trim()) {
+        setInlineError('Please enter a YouTube video URL.');
+        return;
+      }
+      setInlineError('');
+      setStatus('loading');
+      setData(defaultData);
+      setErrorMsg('');
+      setErrorMessage('');
+
       const preferences = JSON.parse(localStorage.getItem('contentPreferences') || '[]');
       const summaryLength = localStorage.getItem('vsSummaryLength') || 'Standard';
       
@@ -80,19 +103,42 @@ const Dashboard = () => {
         summaryLength: summaryLength
       });
 
-      setData(response.data);
+      const rawData = response.data || {};
+      const mergedData = {
+        videoId: rawData.videoId || '',
+        title: rawData.title || rawData.videoTitle || '',
+        videoTitle: rawData.videoTitle || rawData.title || '',
+        thumbnailUrl: rawData.thumbnailUrl || '',
+        videoUrl: rawData.videoUrl || url,
+        channelName: rawData.channelName || '',
+        duration: rawData.duration || '',
+        executiveSummary: rawData.executiveSummary || '',
+        mainTopic: rawData.mainTopic || '',
+        keyPoints: Array.isArray(rawData.keyPoints) ? rawData.keyPoints : [],
+        people: Array.isArray(rawData.people) ? rawData.people : [],
+        context: rawData.context || '',
+        timestamps: Array.isArray(rawData.timestamps) ? rawData.timestamps : [],
+        recommendations: Array.isArray(rawData.recommendations) ? rawData.recommendations : [],
+        exploreNext: Array.isArray(rawData.exploreNext) ? rawData.exploreNext : [],
+        summary: Array.isArray(rawData.summary) ? rawData.summary : []
+      };
+      setData(mergedData);
       setStatus('success');
-      saveToHistory(response.data, url);
+      saveToHistory(mergedData, url);
     } catch (err) {
-      setErrorMsg(err.response?.data?.error || 'An unexpected error occurred. Please try again.');
+      setErrorMsg('something went wrong please try again');
+      setErrorMessage('something went wrong please try again');
       setStatus('error');
     }
   };
 
   const handleReset = () => {
     setUrl('');
-    setData(null);
+    setInlineError('');
+    setData(defaultData);
     setStatus('idle');
+    setErrorMsg('');
+    setErrorMessage('');
   };
 
   const handlePrefill = (category, sampleUrl) => {
@@ -118,19 +164,27 @@ const Dashboard = () => {
               className="dashboard-input" 
               placeholder="Paste a YouTube video URL..." 
               value={url}
-              onChange={(e) => setUrl(e.target.value)}
+              onChange={(e) => {
+                setUrl(e.target.value);
+                setInlineError('');
+              }}
               disabled={status === 'loading'}
             />
             <button type="submit" className="dashboard-submit-btn" disabled={status === 'loading'}>
               Summarize
             </button>
           </form>
+          {inlineError && (
+            <div className="inline-error-message" style={{ color: 'var(--error)', fontSize: 'var(--text-xs)', marginTop: 'var(--space-1)', textAlign: 'center' }}>
+              {inlineError}
+            </div>
+          )}
           <div className="search-banner">
             This is a personal project with limited daily capacity — 3 summaries per visitor per day.
           </div>
         </div>
 
-        {status === 'idle' && (
+        {status === 'idle' ? (
           <div className="landing-content">
             
             {/* Stat cards row */}
@@ -256,9 +310,7 @@ const Dashboard = () => {
               </div>
             </section>
           </div>
-        )}
-
-        {status === 'loading' && (
+        ) : status === 'loading' ? (
           <div className="loading-state">
             <div className="loading-dots">
               <div className="loading-dot dot-1"></div>
@@ -268,9 +320,7 @@ const Dashboard = () => {
             <p className="loading-text">Fetching and summarizing your video</p>
             <LoadingDelayedWarning />
           </div>
-        )}
-
-        {status === 'error' && (
+        ) : status === 'error' ? (
           <div className="error-container">
             <div className="error-card">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--error)" strokeWidth="2" className="error-icon">
@@ -282,10 +332,10 @@ const Dashboard = () => {
               <button className="btn-primary error-retry-btn" onClick={handleReset}>Try Again</button>
             </div>
           </div>
-        )}
-
-        {status === 'success' && data && (
+        ) : status === 'success' && data ? (
           <ResultsDisplay data={data} onReset={handleReset} />
+        ) : (
+          <EmptyState />
         )}
       </div>
     </div>
