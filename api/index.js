@@ -9,6 +9,9 @@ const { YoutubeTranscript } = require('youtube-transcript');
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
+console.log('YOUTUBE_API_KEY exists:', !!process.env.YOUTUBE_API_KEY);
+console.log('GROQ_API_KEY exists:', !!process.env.GROQ_API_KEY);
+
 const app = express();
 
 // ✅ CORS — locked to your domain only
@@ -136,7 +139,10 @@ async function generateSummaryData(url, summaryLength = 'Standard', contentPrefe
         .replace(/&#39;/g, "'").replace(/&quot;/g, '"')
     }));
   } catch (error) {
-    console.warn('Transcript error:', error.message); // ✅ Logs internally, not exposed
+    console.error('Transcript error:', error.message, error.stack);
+    if (error.response?.data) {
+      console.error('Transcript error axios details:', error.response.data);
+    }
     const fallbackText = (snippet.title + " " + (snippet.description || "")).trim();
     if (fallbackText.length >= 20) {
       plainText = `Video Title: ${snippet.title}\n\nDescription:\n${snippet.description || 'No description available.'}`;
@@ -225,12 +231,8 @@ Return NOTHING except the raw JSON object. Do not include markdown code blocks.`
   return { videoId, title, channelName, thumbnailUrl, duration, ...resultData };
 }
 
-<<<<<<< HEAD
-// ✅ /api/summarize — with full input validation
-app.post('/api/summarize', async (req, res) => {
-=======
+// ✅ /api/summarize — with full input validation and rate limiting
 app.post('/api/summarize', summarizeLimiter, async (req, res) => {
->>>>>>> 9197450 (add strict rate limiting to summarize endpoint and capacity banner to dashboard)
   try {
     const { url, contentPreferences, summaryLength } = req.body;
 
@@ -247,9 +249,12 @@ app.post('/api/summarize', summarizeLimiter, async (req, res) => {
     const data = await generateSummaryData(url, resolvedLength, contentPreferences);
     return res.status(200).json(data);
   } catch (error) {
+    console.error('Summarize API Error:', error.message, error.stack);
+    if (error.response?.data) {
+      console.error('Summarize API Axios Error Data:', error.response.data);
+    }
     if (error.status) return res.status(error.status).json({ error: error.message });
-    console.error('Internal Error:', error.message); // ✅ Never exposes stack trace
-    return res.status(500).json({ error: 'Something went wrong. Please try again in a moment.' });
+    return res.status(500).json({ error: 'Something went wrong on our end. Please try again in a moment.' });
   }
 });
 
@@ -278,8 +283,11 @@ app.post('/api/compare', async (req, res) => {
     const similarityNote = completion.choices[0]?.message?.content?.trim() || 'These videos offer interesting comparative insights.';
     return res.status(200).json({ video1, video2, similarityNote });
   } catch (error) {
+    console.error('Compare API Error:', error.message, error.stack);
+    if (error.response?.data) {
+      console.error('Compare API Axios Error Data:', error.response.data);
+    }
     if (error.status) return res.status(error.status).json({ error: error.message });
-    console.error('Compare Error:', error.message); // ✅ No stack trace exposed
     return res.status(500).json({ error: 'Something went wrong while comparing the videos.' });
   }
 });
@@ -348,7 +356,10 @@ app.get('/api/channel', async (req, res) => {
 
     return res.status(200).json({ id: resolvedChannelId, name, description, avatarUrl, subscriberCount, viewCount, videoCount, recentVideos });
   } catch (error) {
-    console.error('Channel Analyzer Error:', error.message); // ✅ No stack trace
+    console.error('Channel Analyzer Error:', error.message, error.stack);
+    if (error.response?.data) {
+      console.error('Channel Analyzer Axios Error Data:', error.response.data);
+    }
     return res.status(500).json({ error: 'Failed to analyze channel.' });
   }
 });
