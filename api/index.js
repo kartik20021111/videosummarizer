@@ -46,6 +46,14 @@ function isValidYouTubeUrl(url) {
   return pattern.test(url);
 }
 
+const summarizeLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000, // 24 hours
+  max: 3,
+  message: { error: 'Daily limit reached. This app is a personal project with limited API capacity. Please try again tomorrow. This protects the Groq API quota from being used up by a single user' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 function parseDuration(isoDuration) {
   const match = isoDuration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
   if (!match) return 'Unknown duration';
@@ -217,8 +225,12 @@ Return NOTHING except the raw JSON object. Do not include markdown code blocks.`
   return { videoId, title, channelName, thumbnailUrl, duration, ...resultData };
 }
 
+<<<<<<< HEAD
 // ✅ /api/summarize — with full input validation
 app.post('/api/summarize', async (req, res) => {
+=======
+app.post('/api/summarize', summarizeLimiter, async (req, res) => {
+>>>>>>> 9197450 (add strict rate limiting to summarize endpoint and capacity banner to dashboard)
   try {
     const { url, contentPreferences, summaryLength } = req.body;
 

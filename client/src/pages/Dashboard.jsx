@@ -125,6 +125,9 @@ const Dashboard = () => {
               Summarize
             </button>
           </form>
+          <div className="search-banner">
+            This is a personal project with limited daily capacity — 3 summaries per visitor per day.
+          </div>
         </div>
 
         {status === 'idle' && (
